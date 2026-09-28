@@ -47,6 +47,43 @@ function isSeparator(char: string | undefined): boolean {
   return char !== undefined && !/[A-Za-z0-9\s]/.test(char);
 }
 
+/**
+ * Splits text holding several EDI files, such as two tenders pasted one after
+ * the other, into one string per interchange.
+ *
+ * Each interchange declares its own separators and envelope in its ISA, so
+ * reading them together would apply the first file's to all of them. A new
+ * interchange starts at every `ISA` that begins a segment. `ISA` inside data,
+ * say a company named ISA in an N1, is preceded by the same element separator
+ * that follows it, and is left alone.
+ *
+ * Text before the first ISA is returned as its own chunk, so a note pasted
+ * above a file does not swallow that file's envelope.
+ */
+export function splitInterchanges(input: string): string[] {
+  const starts: number[] = [];
+
+  for (const match of input.matchAll(/ISA([^A-Za-z0-9\s])/gi)) {
+    const index = match.index;
+    const elementSeparator = match[1];
+    const previous = input.slice(0, index).trimEnd().at(-1);
+    const startsSegment =
+      previous === undefined ||
+      (!/[A-Za-z0-9]/.test(previous) && previous !== elementSeparator);
+    if (startsSegment) {
+      starts.push(index);
+    }
+  }
+
+  if (starts.length === 0) {
+    return [input];
+  }
+
+  const chunks = starts.map((start, i) => input.slice(start, starts[i + 1]));
+  const preamble = input.slice(0, starts[0]);
+  return preamble.trim() === "" ? chunks : [preamble, ...chunks];
+}
+
 /** X12 segment IDs are two or three characters, letters and digits only. */
 const SEGMENT_NAME_PATTERN = /^[A-Z][A-Z0-9]{1,2}$/;
 

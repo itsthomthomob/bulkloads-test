@@ -14,10 +14,13 @@ body {
   flex-direction: column;
 }
 
+/*
+ * No padding/margin reset here. MUI's styles sit in a CSS layer, and any
+ * unlayered rule outranks every layered one, so a `* { margin: 0 }` would
+ * silently cancel all `sx` spacing. CssBaseline already zeroes the body margin.
+ */
 * {
   box-sizing: border-box;
-  padding: 0;
-  margin: 0;
 }
 
 a {

@@ -11,7 +11,7 @@ Another design choice I made is to go off of the "rule of 4s" or have spacing fo
 
 ## Timebox Recording
 
-I started at 3:05 PM, paused development at 4:08 PM because I was at Travellers House on national and they have pretty bad connection. Decided to go home and resume there.
+I started at 3:05 PM, paused development at 4:08 PM because I was at Travellers House on national and they have pretty bad connection. Decided to go home and resume there. I resumed at 4:30 PM. 
 
 ## Interactive Map
 When I read through the EDI files (manaully) I noticed the location-based variables I thought would be worth showing on a map:

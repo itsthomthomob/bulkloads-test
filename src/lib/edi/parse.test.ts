@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { parseEdi, parseDate, parseTime } from "./parse";
 import { SAMPLE_CHANGE, SAMPLE_ORIGINAL } from "./samples";
-import { detectSeparators, tokenize } from "./tokenize";
+import { detectSeparators, splitInterchanges, tokenize } from "./tokenize";
 import { EdiParseError } from "./types";
 
 function parseOne(input: string) {
@@ -69,14 +69,10 @@ describe("tokenizing", () => {
     ]);
   });
 
-  it("still reads the load when prose precedes the file", () => {
-    // The preamble runs into the ISA, since prose carries no terminator, so
-    // the envelope is lost. The load itself still parses.
+  it("reads the whole file, envelope included, when prose precedes it", () => {
+    // The note is split off at the ISA, so it cannot swallow the envelope.
     const result = parseEdi(`Here is tomorrow's tender.\n${SAMPLE_ORIGINAL}`);
-    const tender = result.tenders[0];
-    expect(tender.shipmentId).toBe("ACM-44817");
-    expect(tender.stops).toHaveLength(2);
-    expect(tender.envelope.senderId).toBeNull();
+    expect(result.tenders[0]).toEqual(parseOne(SAMPLE_ORIGINAL));
     expect(result.warnings).toEqual([
       expect.stringContaining("did not look like EDI segments"),
     ]);
@@ -344,5 +340,33 @@ describe("holding up under odd input", () => {
       "B2**BTMS**ACM-4**PP~B2A*00~S5*1*LD*100*L~L3*100*L*******1~G61*IC*NOBODY*TE*5551234567~",
     );
     expect(tender.stops[0].contacts).toEqual([]);
+  });
+});
+
+describe("several files pasted together", () => {
+  const both = `${SAMPLE_ORIGINAL}\n${SAMPLE_CHANGE}`;
+
+  it("splits at each ISA that starts a segment", () => {
+    expect(splitInterchanges(both)).toEqual([`${SAMPLE_ORIGINAL}\n`, SAMPLE_CHANGE]);
+  });
+
+  it("does not split at ISA inside data", () => {
+    const named = SAMPLE_ORIGINAL.replace("ACME CHEMICAL CO", "ISA*CO");
+    expect(splitInterchanges(named)).toHaveLength(1);
+  });
+
+  it("gives each tender its own envelope", () => {
+    const [original, change] = parseEdi(both).tenders;
+    expect(original).toEqual(parseOne(SAMPLE_ORIGINAL));
+    expect(change).toEqual(parseOne(SAMPLE_CHANGE));
+    expect(original.envelope.interchangeControlNumber).toBe("000000731");
+    expect(change.envelope.interchangeControlNumber).toBe("000000748");
+  });
+
+  it("reads each file with its own separators", () => {
+    const alternate = SAMPLE_CHANGE.replace(/\*/g, "|").replace(/~/g, "^");
+    const [original, change] = parseEdi(`${SAMPLE_ORIGINAL}${alternate}`).tenders;
+    expect(original).toEqual(parseOne(SAMPLE_ORIGINAL));
+    expect(change).toEqual(parseOne(SAMPLE_CHANGE));
   });
 });

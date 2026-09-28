@@ -3,15 +3,14 @@ import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 
 import {
-  formatAddressLines,
   formatDateTime,
   formatQuantity,
   formatStopHeading,
-  formatWindow,
   type LoadTender,
   type Party,
-  type Stop,
 } from "@/lib/edi";
+import { Block, Grid, Line, PartyLines } from "./fields";
+import StopDetails from "./StopDetails";
 
 /**
  * Renders a parsed tender as prose and labelled fields rather than as data.
@@ -114,61 +113,7 @@ export default function TenderReadout({
           key={`${stop.sequence ?? index}-${stop.type.code}`}
           title={formatStopHeading(stop, index)}
         >
-          <Grid>
-            <Block label={partyLabel(stop)}>
-              {stop.party === null ? (
-                <Line muted>Not given</Line>
-              ) : (
-                <PartyLines party={stop.party} />
-              )}
-            </Block>
-
-            <Block label={stop.kind === "delivery" ? "Deliver" : "Pick up"}>
-              <Line>
-                {formatWindow(stop.earliest, stop.latest) ?? "No time given"}
-              </Line>
-              {formatQuantity(stop.quantity) !== null && (
-                <Line muted>{formatQuantity(stop.quantity)}</Line>
-              )}
-            </Block>
-
-            {stop.contacts.map((contact, contactIndex) => (
-              <Block
-                key={`${contact.name ?? "contact"}-${contactIndex}`}
-                label="Contact"
-              >
-                {contact.name !== null && <Line>{contact.name}</Line>}
-                {contact.phone !== null && <Line>{contact.phone}</Line>}
-              </Block>
-            ))}
-
-            {stop.commodities.map((commodity, commodityIndex) => (
-              <Block
-                key={`${commodity.code ?? "commodity"}-${commodityIndex}`}
-                label="Product"
-              >
-                <Line>{commodity.description ?? "Not described"}</Line>
-                {commodity.code !== null && (
-                  <Line muted>
-                    {commodity.code}
-                    {commodity.hazmat ? " — hazardous material" : ""}
-                  </Line>
-                )}
-              </Block>
-            ))}
-
-            {stop.orders.map((order, orderIndex) => (
-              <Block
-                key={`${order.orderId ?? "order"}-${orderIndex}`}
-                label="Order"
-              >
-                {order.orderId !== null && <Line>{order.orderId}</Line>}
-                {order.purchaseOrder !== null && (
-                  <Line muted>Purchase order {order.purchaseOrder}</Line>
-                )}
-              </Block>
-            ))}
-          </Grid>
+          <StopDetails stop={stop} />
         </Section>
       ))}
 
@@ -233,41 +178,11 @@ function describeEquipment(tender: LoadTender): string {
   return described === "" ? "Not given" : described;
 }
 
-/**
- * Labels the stop's party by what it is to the dispatcher rather than by its
- * X12 code, falling back to the code's own label for anything unexpected.
- */
-function partyLabel(stop: Stop): string {
-  if (stop.kind === "pickup") {
-    return "Shipper";
-  }
-  if (stop.kind === "delivery") {
-    return "Receiver";
-  }
-  return stop.party?.type.label ?? "Party";
-}
-
 function PartyBlock({ label, party }: Readonly<{ label: string; party: Party }>) {
   return (
     <Block label={label}>
       <PartyLines party={party} />
     </Block>
-  );
-}
-
-function PartyLines({ party }: Readonly<{ party: Party }>) {
-  return (
-    <>
-      <Line>{party.name ?? "Name not given"}</Line>
-      {formatAddressLines(party.address).map((line) => (
-        <Line key={line} muted>
-          {line}
-        </Line>
-      ))}
-      {party.locationCode !== null && (
-        <Line muted>Site code {party.locationCode}</Line>
-      )}
-    </>
   );
 }
 
@@ -278,10 +193,9 @@ function Section({
   return (
     <Box component="section" sx={{ mt: 4 }}>
       <Typography
-        variant="overline"
+        variant="subtitle1"
         component="h4"
         sx={{
-          display: "block",
           pb: 2,
           mb: 4,
           borderBottom: 1,
@@ -292,56 +206,6 @@ function Section({
       </Typography>
       {children}
     </Box>
-  );
-}
-
-function Grid({ children }: Readonly<{ children: ReactNode }>) {
-  return (
-    <Box
-      sx={{
-        display: "grid",
-        gridTemplateColumns: { xs: "1fr", sm: "repeat(2, minmax(0, 1fr))" },
-        gap: 4,
-      }}
-    >
-      {children}
-    </Box>
-  );
-}
-
-function Block({
-  label,
-  children,
-}: Readonly<{ label: string; children: ReactNode }>) {
-  return (
-    <Box>
-      <Typography
-        variant="overline"
-        component="p"
-        sx={{ color: "text.secondary", mb: 2 }}
-      >
-        {label}
-      </Typography>
-      <Box sx={{ display: "grid", gap: 1 }}>{children}</Box>
-    </Box>
-  );
-}
-
-function Line({
-  children,
-  muted = false,
-}: Readonly<{
-  children: ReactNode;
-  muted?: boolean;
-}>) {
-  return (
-    <Typography
-      variant="body2"
-      component="p"
-      sx={{ color: muted ? "text.secondary" : "text.primary" }}
-    >
-      {children}
-    </Typography>
   );
 }
 

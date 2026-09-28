@@ -14,6 +14,21 @@ const brightOrange = {
   contrastText: "#160B00",
 };
 
+/**
+ * The neutral colours, exported so the map style can draw with exactly the
+ * same values. MapLibre paints to a canvas and cannot read CSS variables.
+ */
+export const SURFACE = {
+  background: "#0B1220",
+  paper: "#131C2E",
+  textPrimary: "#E8EDF7",
+  textSecondary: "#9AA7BF",
+  /** Base colour of hairline rules, before opacity. */
+  rule: "148, 163, 184",
+} as const;
+
+export const ACCENT = { green: brightGreen, orange: brightOrange } as const;
+
 /** Geist Mono, declared on `<html>` by the root layout. */
 export const MONO_FONT = "var(--font-geist-mono), ui-monospace, monospace";
 
@@ -33,14 +48,14 @@ const theme = createTheme({
         primary: brightGreen,
         secondary: brightOrange,
         background: {
-          default: "#0B1220",
-          paper: "#131C2E",
+          default: SURFACE.background,
+          paper: SURFACE.paper,
         },
         text: {
-          primary: "#E8EDF7",
-          secondary: "#9AA7BF",
+          primary: SURFACE.textPrimary,
+          secondary: SURFACE.textSecondary,
         },
-        divider: "rgba(148, 163, 184, 0.18)",
+        divider: `rgba(${SURFACE.rule}, 0.18)`,
         success: { main: brightGreen.main },
         warning: { main: brightOrange.main },
       },
@@ -66,6 +81,20 @@ const theme = createTheme({
       fontWeight: 600,
       letterSpacing: "-0.01em",
       lineHeight: 1.2,
+    },
+    // Titles a group of fields, such as a stop.
+    subtitle1: {
+      fontSize: "1rem",
+      fontWeight: 600,
+      letterSpacing: "-0.005em",
+      lineHeight: 1.3,
+    },
+    // Labels a single field. Same size as the value beneath it, so the label
+    // leads by weight and colour rather than by shrinking the value.
+    subtitle2: {
+      fontSize: "0.875rem",
+      fontWeight: 600,
+      lineHeight: 1.4,
     },
     body2: {
       fontSize: "0.875rem",

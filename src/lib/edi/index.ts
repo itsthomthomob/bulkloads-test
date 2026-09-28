@@ -1,4 +1,6 @@
 export { parseEdi, parseDate, parseTime } from "./parse";
+export { listTenders, parseDocuments, tenderLetter } from "./documents";
+export type { DocumentResult, SourceDocument, TenderEntry } from "./documents";
 export {
   formatAddressLines,
   formatCount,
@@ -8,7 +10,13 @@ export {
   formatStopHeading,
   formatWindow,
 } from "./format";
-export { detectSeparators, tokenize, field, numericField } from "./tokenize";
+export {
+  detectSeparators,
+  field,
+  numericField,
+  splitInterchanges,
+  tokenize,
+} from "./tokenize";
 export type { TokenizeResult } from "./tokenize";
 export { SAMPLE_CHANGE, SAMPLE_ORIGINAL, SAMPLES } from "./samples";
 export {

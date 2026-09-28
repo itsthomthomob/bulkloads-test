@@ -11,7 +11,15 @@ import {
   TANK_SPECS,
   UNITS,
 } from "./codes";
-import { detectSeparators, field, numericField, tokenize } from "./tokenize";
+import {
+  detectSeparators,
+  field,
+  numericField,
+  splitInterchanges,
+  tokenize,
+  type TokenizeResult,
+} from "./tokenize";
+import { EdiParseError } from "./types";
 import type {
   Address,
   CodedValue,
@@ -27,6 +35,7 @@ import type {
   Quantity,
   Reference,
   Segment,
+  Separators,
   Stop,
   TimeWindow,
   Totals,
@@ -38,39 +47,68 @@ const UN_NUMBER_PATTERN = /^UN\d{4}$/;
 const TANK_SPEC_PATTERN = /^(MC|DOT)\d{3}$/;
 
 /**
- * Parses an EDI 204 load tender into a shape that maps onto what a dispatcher
+ * Parses EDI 204 load tenders into a shape that maps onto what a dispatcher
  * needs to see.
  *
- * Unrecognised segments are recorded rather than treated as errors, so a file
- * carrying extra content still produces a usable result. Only input with no
- * readable segments at all throws.
+ * The input may hold several interchanges pasted together; each is read with
+ * its own separators and envelope. Unrecognised segments are recorded rather
+ * than treated as errors, so a file carrying extra content still produces a
+ * usable result. Only input with no readable segments at all throws.
  */
 export function parseEdi(input: string): ParseResult {
-  const separators = detectSeparators(input);
-  const { segments, skipped } = tokenize(input, separators);
+  const tenders: LoadTender[] = [];
   const warnings: string[] = [];
+  let separators: Separators | null = null;
+  let segmentCount = 0;
+  let skippedCount = 0;
+  let firstError: EdiParseError | null = null;
 
-  if (skipped.length > 0) {
+  for (const chunk of splitInterchanges(input)) {
+    const chunkSeparators = detectSeparators(chunk);
+    let tokenized: TokenizeResult;
+    try {
+      tokenized = tokenize(chunk, chunkSeparators);
+    } catch (error) {
+      if (!(error instanceof EdiParseError)) {
+        throw error;
+      }
+      // A chunk with no segments at all, such as a note above the first
+      // file, is skipped like any other stray text.
+      firstError ??= error;
+      skippedCount += chunk
+        .split(chunkSeparators.segment)
+        .filter((part) => part.trim() !== "").length;
+      continue;
+    }
+
+    const { segments, skipped } = tokenized;
+    separators ??= chunkSeparators;
+    segmentCount += segments.length;
+    skippedCount += skipped.length;
+
+    for (const transaction of splitTransactions(segments)) {
+      tenders.push(
+        parseTransaction(transaction, readEnvelope(segments, transaction)),
+      );
+    }
+  }
+
+  if (separators === null) {
+    throw firstError ?? new EdiParseError("This does not look like an EDI file.");
+  }
+
+  if (skippedCount > 0) {
     warnings.push(
-      `Ignored ${skipped.length} ${skipped.length === 1 ? "line that" : "lines that"} did not look like EDI segments.`,
+      `Ignored ${skippedCount} ${skippedCount === 1 ? "line that" : "lines that"} did not look like EDI segments.`,
+    );
+  }
+  if (tenders.length > 1) {
+    warnings.push(
+      `This file contains ${tenders.length} load tenders. All of them are shown.`,
     );
   }
 
-  const transactions = splitTransactions(segments);
-  if (transactions.length > 1) {
-    warnings.push(
-      `This file contains ${transactions.length} load tenders. All of them are shown.`,
-    );
-  }
-
-  return {
-    tenders: transactions.map((transaction) =>
-      parseTransaction(transaction, readEnvelope(segments, transaction)),
-    ),
-    separators,
-    segmentCount: segments.length,
-    warnings,
-  };
+  return { tenders, separators, segmentCount, warnings };
 }
 
 /**
